@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>患儿喂养量计算器</title>
+    <style>
+        body {
+            font-family: '微软雅黑', Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .entry {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .result {
+            color: #2196F3;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        input[type="number"] {
+            width: 100px;
+            padding: 4px;
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="section">
+        <h2>基本信息</h2>
+        <div>
+            <label>性别：
+                <select id="gender">
+                    <option value="male">男</option>
+                    <option value="female">女</option>
+                </select>
+            </label>
+            <label>年龄（岁）：<input type="number" id="age" min="1" max="17" required></label>
+            <label>体重（kg）：<input type="number" id="weight" step="0.1" required></label>
+            <label>身高（cm）：<input type="number" id="height" required></label>
+            <label>ICU住院天数：<input type="number" id="icuDays" min="1" required></label>
+        </div>
+    </div>
+ 
+    <div class="section">
+        <h2>营养摄入</h2>
+        <div id="liquidEntries">
+            <h3>液体营养制剂</h3>
+            <div class="entry">
+                使用量（ml）：<input type="number" class="volume" step="1">
+                总热量（kcal）：<input type="number" class="totalKcal" step="1">
+                总容量（ml）：<input type="number" class="totalVolume" step="1">
+                <button onclick="removeEntry(this)">删除</button>
+            </div>
+        </div>
+        <button onclick="addLiquidEntry()">+ 添加液体</button>
+ 
+        <div id="solidEntries" style="margin-top:20px;">
+            <h3>固体营养制剂</h3>
+            <div class="entry">
+                包数：<input type="number" class="packCount" step="1">
+                每包热量（kcal）：<input type="number" class="kcalPerPack" step="1">
+                <button onclick="removeEntry(this)">删除</button>
+            </div>
+        </div>
+        <button onclick="addSolidEntry()">+ 添加固体</button>
+    </div>
+ 
+    <div class="section">
+        <button onclick="calculate()" style="background:#2196F3;padding:12px 24px;">开始计算</button>
+        <div id="result" class="result"></div>
+    </div>
+ 
+    <script>
+        // 添加液体条目
+        function addLiquidEntry() {
+            const entry = document.createElement('div');
+            entry.className = 'entry';
+            entry.innerHTML = `
+                使用量（ml）：<input type="number" class="volume" step="1">
+                总热量（kcal）：<input type="number" class="totalKcal" step="1">
+                总容量（ml）：<input type="number" class="totalVolume" step="1">
+                <button onclick="removeEntry(this)">删除</button>
+            `;
+            document.getElementById('liquidEntries').appendChild(entry);
+        }
+ 
+        // 添加固体条目
+        function addSolidEntry() {
+            const entry = document.createElement('div');
+            entry.className = 'entry';
+            entry.innerHTML = `
+                包数：<input type="number" class="packCount" step="1">
+                每包热量（kcal）：<input type="number" class="kcalPerPack" step="1">
+                <button onclick="removeEntry(this)">删除</button>
+            `;
+            document.getElementById('solidEntries').appendChild(entry);
+        }
+ 
+        // 删除条目
+        function removeEntry(btn) {
+            btn.parentElement.remove();
+        }
+ 
+        // 主计算函数
+        function calculate() {
+            try {
+                // 基本信息验证
+                const age = parseInt(document.getElementById('age').value);
+                if (age >= 18) throw new Error("本公式仅适用于18岁以下患儿");
+ 
+                // 计算目标热量
+                const target = calculateTarget();
+                
+                // 计算实际摄入
+                const actual = calculateActual();
+                
+                // 计算达标情况
+                const icuDays = parseInt(document.getElementById('icuDays').value);
+                const ratio = (actual / target * 100).toFixed(1);
+                const isMet = icuDays <= 7 ? actual >= target * 2/3 : actual >= target;
+ 
+                // 显示结果
+                const resultHTML = `
+                    <p>目标热量：${target.toFixed(1)} kcal</p>
+                    <p>实际摄入：${actual.toFixed(1)} kcal</p>
+                    <p>达成比例：${ratio}%</p>
+                    <p>喂养目标：<span style="color:${isMet ? 'green' : 'red'}">${
+                        isMet ? '已达成' : '未达成'}</span></p>
+                `;
+                document.getElementById('result').innerHTML = resultHTML;
+            } catch (error) {
+                alert("错误：" + error.message);
+            }
+        }
+ 
+        // 目标热量计算
+        function calculateTarget() {
+            const gender = document.getElementById('gender').value;
+            const age = parseInt(document.getElementById('age').value);
+            const weight = parseFloat(document.getElementById('weight').value);
+            const height = parseFloat(document.getElementById('height').value);
+ 
+            let ree;
+            if (gender === 'male') {
+                if (age < 3) ree = 0.167 * weight + 15.174 * height - 617.6;
+                else if (age < 10) ree = 19.59 * weight + 1.303 * height + 414.9;
+                else ree = 16.25 * weight + 1.372 * height + 705.8;
+            } else {
+                if (age < 3) ree = 16.252 * weight + 10.232 * height - 413.5;
+                else if (age < 10) ree = 16.969 * weight + 1.618 * height + 371.2;
+                else ree = 8.365 * weight + 4.65 * height + 200;
+            }
+            return ree;
+        }
+ 
+        // 实际摄入计算
+        function calculateActual() {
+            let total = 0;
+            
+            // 液体计算
+            document.querySelectorAll('#liquidEntries .entry').forEach(entry => {
+                const volume = parseFloat(entry.querySelector('.volume').value) || 0;
+                const totalKcal = parseFloat(entry.querySelector('.totalKcal').value) || 0;
+                const totalVolume = parseFloat(entry.querySelector('.totalVolume').value) || 1;
+                total += (totalKcal / totalVolume) * volume;
+            });
+ 
+            // 固体计算
+            document.querySelectorAll('#solidEntries .entry').forEach(entry => {
+                const packs = parseFloat(entry.querySelector('.packCount').value) || 0;
+                const kcalPerPack = parseFloat(entry.querySelector('.kcalPerPack').value) || 0;
+                total += packs * kcalPerPack;
+            });
+ 
+            return total;
+        }
+    </script>
+</body>
+</html>
